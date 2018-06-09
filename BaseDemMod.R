@@ -24,14 +24,25 @@ plot(PropK,fs,col="blue",type = "l",xlab = "Proportion of K",ylab = "Female Surv
 plot(PropK,ms,col="red",type = "l",xlab = "Proportion of K",ylab = "Male Survival", ylim = c(.75,1))
 # Test function ------------------------------------------------------------------------------------
 source("somatrixHz.r")
+AdHz = 0 # (assume same hazards for female and male, though they can be different)
+Sig = .1
+PropK = 1
 lam = numeric()
 R = numeric()
+fs = numeric()
+ms = numeric()
+AdHzF = AdHz; AdHzM = AdHz
 for (i in 1:5000){
-  rslt = somatrixHz(1,0,0)
+  rslt = somatrixHz(PropK,Sig,AdHzF,AdHzM)
   lam[i] = rslt$lam
   R[i] = rslt$vrts[1]
+  fs[i] = rslt$vrts[2]
+  ms[i] = rslt$vrts[3]
 }
-hist(lam)
-hist(R)
-mean(lam)
-mean(R)  
+par(mfrow=c(2,2))
+hist(lam, main = paste("Lambda, mean = ",format(mean(lam),digits=2)),
+          sub = paste("% K = ",100*PropK,", Sigma = ",Sig,", Add. Hzrd Ratio = ",format(exp(AdHz),digits = 2)))
+hist(R, main = paste("R (fecundity), mean = ",format(mean(R),digits=2)))
+hist(fs, main = paste("Female Survivival, mean = ",format(mean(fs),digits=2)))
+hist(ms, main = paste("Male Survivival, mean = ",format(mean(ms),digits=2)))
+
