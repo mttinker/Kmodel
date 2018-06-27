@@ -26,7 +26,7 @@ plot(PropK,ms,col="red",type = "l",xlab = "Proportion of K",ylab = "Male Surviva
 source("somatrixHz.r")
 AdHz = 0 # (assume same hazards for female and male, though they can be different)
 Sig = .1
-PropK = 1
+PropK = .5
 lam = numeric()
 R = numeric()
 fs = numeric()
@@ -40,7 +40,7 @@ for (i in 1:5000){
   ms[i] = rslt$vrts[3]
 }
 par(mfrow=c(2,2))
-hist(lam, main = paste("Lambda, mean = ",format(mean(lam),digits=2)),
+hist(lam, main = paste("Lambda, mean = ",format(mean(lam),digits=3)),
           sub = paste("% K = ",100*PropK,", Sigma = ",Sig,", Add. Hzrd Ratio = ",format(exp(AdHz),digits = 2)))
 hist(R, main = paste("R (fecundity), mean = ",format(mean(R),digits=2)))
 hist(fs, main = paste("Female Survivival, mean = ",format(mean(fs),digits=2)))
