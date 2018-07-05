@@ -1,49 +1,49 @@
 # Model to fit populatation growth with density dependence/stochasticity to 
 # time series of survey counts (including habitat-specific K)
 model{
-# Loop through survey counts of adults and pups
+# Observed nodes: survey counts (loop through counts of adults and pups)
 for (i in 1:Ncounts){
-	ExpctInd[i] <- N[Syear[i],Spop[i]]
-	ExpctPups[i] = n[1,Syear[i],Spop[i]]*fs[Spop[i],Syear[i]]*R[Spop[i],Syear[i]]*pupscalefact
+	ExpctInd[i] <- N[Ysrv[i],Psrv[i]]
+	# ExpctPups[i] <- max(1,n[1,max(1,Ysrv[i]-1),Psrv[i]])*fs[Psrv[i],max(1,Ysrv[i]-1)]*R[Psrv[i],max(1,Ysrv[i]-1)]*pupscalefact
+	# ExpctPups[i] ~ dpois(ExpctPupsDet[i]) 
 	# Observed node: adult counts	  
 	pparInd[i] <- Nu[1]/(Nu[1]+ExpctInd[i]) 
 	CountI[i] ~ dnegbin(pparInd[i],Nu[1])	
 	# Observed node: pup counts	  
-	pparPup[i] <- Nu[1]/(Nu[1]+ExpctPups[i]) 
-	CountP[i] ~ dnegbin(pparPup[i],Nu[1])		
+	# pparPup[i] <- NuPP/(NuPP+ExpctPups[i]) 
+	# CountP[i] ~ dnegbin(pparPup[i],NuPP)		
+}
+# Observed Node: male and female carcasses (COD = 1 for shark, 0 for other)
+for (i in 1:NCarcsF){
+	ExpPshkF[i] <- exp(AdHz[PshkF[i],YshkF[i]])/(exp(AdHz[PshkF[i],YshkF[i]])+exp(zeta[2]+zeta[4]*PrpK[PshkF[i],YshkF[i]]))
+	CarcShrkF[i] ~ dbern(ExpPshkF[i])
+}
+for (i in 1:NCarcsM){
+	ExpPshkM[i] <- exp(Mbias*AdHz[PshkM[i],YshkM[i]])/(exp(Mbias*AdHz[PshkM[i],YshkM[i]])+exp(zeta[2]+zeta[3]+zeta[4]*PrpK[PshkM[i],YshkM[i]]))
+	CarcShrkM[i] ~ dbern(ExpPshkM[i])
 }
 # Loop through Pops to initiate populations
 for (i in 1:Npop){
 	# Initialize pop vectors for SubPop i in year 1 (vague prior)
 	Dns0[i] ~ dunif(0,5) # Uninformative uniform prior
-	N[1,i] <- Dns0[i]*Area[i]
-	n[1,1,i] <- ifelse(MalArea[i,1]==1,0,0.6*N[1,i])
+	N[1,i] <- Dns0[i]*Area[i]	
+	# Proportion of females depends on initial demographic composition
+	n[1,1,i] <- propfem[DemComp[i,1]]*N[1,i] 
 	n[2,1,i] <- N[1,i]-n[1,1,i]
 	PrpK[i,1] <- N[1,i]/K[i]
 }
-# Observed Node: shark carcasses
-for (y in 1:(Nyrs-1)){
-	for (i in 1:Npop){
-		# Observed Node: number of shark carcasses for females and males, year y
-		# (note: staggered by 1 year, so y=1 is 1984, y = Nyrs-1 is 2017)
-		NshkF[i,y] ~ dbin(ExpPshkF[i,y],NcarcF[i,y])
-		NshkM[i,y] ~ dbin(ExpPshkM[i,y],NcarcM[i,y])
-		# Expected Proportion of carcasses from Shark bite:		
-		ExpPshkF[i,y] <- exp(AdHz[i,y])/(exp(AdHz[i,y])+exp(z1+z3*PrpK[i,y]))
-		ExpPshkM[i,y] <- exp(Mbias*AdHz[i,y])/(exp(Mbias*AdHz[i,y])+exp(z1+z2+z3*PrpK[i,y]))	
-	}
-}
-# Loop through Pops and Years to compute population dynamics
+# Loop through Pops and Years to compute population dynamics (Year 1 = 1983)
 for (y in 1:(Nyrs-1)){
 	for (i in 1:Npop){
 		# Calculate effects of Environmental stochasticity
 		eps[i,y] ~ dnorm(0,tauE) # env. stochasticity, variance in log hazard ratios
-		epsR[i,y] = exp(-1*(eps[i,y]))/exp(.5*sigE^2) # Bias-adjusted log-normal error for R
+		epsR[i,y] = exp(eps[i,y]-(sigE^2)/2)  # Bias-adjusted log-normal error for R
 		# Calculate vital rates, with effects of D-D, additional shark hazards, stochasticity
 		#   and "urchin boom (UB) effect" in some areas/years
+		AdHzP[i,y] <- ifelse(i==5,0,AdHz[i,y])
 		R[i,y] = min(rho[1],((rho[2]^(-rho[3]*PrpK[i,y]))/10 + rho[4])*epsR[i,y])
-        fs[i,y] = exp(-zeta[1]*exp(zeta[2]+zeta[4]*PrpK[i,y]+UB[i,y]*UBE+AdHz[i,y]+eps[i,y]))
-        ms[i,y] = exp(-zeta[1]*exp(zeta[2]+zeta[3]+zeta[4]*PrpK[i,y]+UB[i,y]*UBE+Mbias*AdHz[i,y]+eps[i,y]))
+        fs[i,y] = exp(-zeta[1]*exp(zeta[2]+zeta[4]*PrpK[i,y]+UB[i,y]*UBE+AdHzP[i,y]+eps[i,y]))
+        ms[i,y] = exp(-zeta[1]*exp(zeta[2]+zeta[3]+zeta[4]*PrpK[i,y]+UB[i,y]*UBE+Mbias*AdHzP[i,y]+eps[i,y]))
 		# Build projection matrix for year y, subpop i
 		M[1,1,y,i] <- fs[i,y]*(1+R[i,y])
 		M[1,2,y,i] <- 0
@@ -54,8 +54,9 @@ for (y in 1:(Nyrs-1)){
 		nf1[i,y] <- n1[1,y,i]
 		nm1[i,y] <- n1[2,y,i]
 		# Create dispersal matrices, accounting for male areas and stochasticity
-		DispAdj[i,y] <- ifelse(MalArea[i,y]==1,MAeff,1)
-		DAf[i,1:Npop,y] <-DispAdj[i,y]*disprobF[i,1:Npop] 
+		# DispAdj[i,y] <- ifelse(MalArea[i,y]==1,MAeff,1)
+		# DAf[i,1:Npop,y] <-DispAdj[i,y]*disprobF[i,1:Npop]
+		DAf[i,1:Npop,y] <- FRDF[DemComp[i,y]]*disprobF[i,1:Npop] 
 		DRf[1:Npop,i,y] ~ ddirch(50*DAf[1:Npop,i,y])
 		DAm[i,1:Npop,y] <-disprobM[i,1:Npop] 
 		DRm[1:Npop,i,y] ~ ddirch(25*DAm[1:Npop,i,y])		
@@ -80,8 +81,8 @@ for (i in 1:Npop) {
   for (j in 1:NgrdH[i]){
   # Loop through grid cells to estimate localized K in high dens strata
     DepEffH[j,i] <- ifelse(DepH[j,i]<=ModalD,(1-((DepH[j,i]-ModalD)/100)^2)^B1,(1-((DepH[j,i]-ModalD)/100)^2)^B2)
-    KgHD[j,i] <- exp(B0[SubH[j,i]]+DepEffH[j,i]+B3*KlpH[j,i]+B4*DshH[j,i])*epsK[i] 
-	ExpctCountH[j,i] = sum(PrpK[i,1:Nyrs])*KgHD[j,i]*.01
+    KgHD[j,i] <- ifelse(SubH[j,i]==4,exp(B0[SubH[j,i]]),exp(B0[SubH[j,i]]+DepEffH[j,i]+B3*KlpH[j,i]+B4*DshH[j,i]))*epsK[i] 
+	ExpctCountH[j,i] <- sum(PrpK[i,1:Nyrs])*KgHD[j,i]*.01
 	# Observed node: grid count in HD cell	  
 	pparHD[j,i] <- Nu[2]/(Nu[2]+ExpctCountH[j,i]) 
 	GridcountH[j,i] ~ dnegbin(pparHD[j,i],Nu[2])	
@@ -90,12 +91,12 @@ for (i in 1:Npop) {
   # Loop through grid cells to estimate localized K in low dens strata
     DepEffL[j,i] <- ifelse(DepL[j,i]<=ModalD,(1-((DepL[j,i]-ModalD)/100)^2)^B1,(1-((DepL[j,i]-ModalD)/100)^2)^B2)
     KgLD[j,i] <- exp(B0[SubL[j,i]]+DepEffL[j,i]+B3*KlpL[j,i]+B4*DshL[j,i])*epsK[i] 
-	ExpctCountL[j,i] = sum(PrpK[i,1:Nyrs])*KgLD[j,i]*.01  
+	ExpctCountL[j,i] <- sum(PrpK[i,1:Nyrs])*KgLD[j,i]*.01  
 	# Observed node: grid count in LD cell	  
 	pparLD[j,i] <- Nu[3]/(Nu[3]+ExpctCountL[j,i]) 
 	GridcountL[j,i] ~ dnegbin(pparLD[j,i],Nu[3])		  
   }
-  Ki[i] <- AreaHD[i]*mean(KgHD[1:NgrdH[i],i])+AreaLD[i]*mean(KgLD[1:NgrdL[i],i])  
+  K[i] <- AreaHD[i]*mean(KgHD[1:NgrdH[i],i])+AreaLD[i]*mean(KgLD[1:NgrdL[i],i])  
 }
 # Compute additional Shark bite hazards by sub-pop and year
 #  (as Conditional Autoregressive variable in 2 dimensions, coast section and time)
@@ -128,7 +129,6 @@ B1 ~ dt(0, 1/10^2 ,1) T(0,100) # Effect of Depth, inshore of modal depth
 B2 ~ dt(0, 1/10^2 ,1) T(0,100) # Effect of Depth, offshore of modal depth 
 B3 ~ dt(0, 1/2.5^2 ,1) # Effect of Kelp (log ratio)
 B4 ~ dt(0, 1/2.5^2 ,1) # Effect of Shallow Slope (DistShore_v_Depth residual), log ratio
-
 # Dispersion params for obserbed vars (negative binomial distributions)
 Nu[1] ~ dt(0, .001 ,1) T(0.001,100) # Dispersion parameter, observer error in counts
 Nu[2] ~ dt(0, .001 ,1) T(0.001,100) # Dispersion parameter, variance in counts HD grid cell
@@ -145,15 +145,20 @@ sigT ~ dt(0, 1/5^2 ,1) T(0,20) # temporal variance term, averaged across sites
 tauT <- pow(sigT,-2)
 #
 # Some nuiscense params
-pupscalefact ~ dnorm(1.2,1/.25^2) T(0.5,1.8) # Adjusts for % pups present at survey
-# Modal depth (where otters most likely to be on average: part of depth function)
+# pupscalefact ~ dnorm(1.1,1/.2^2) T(0.5,1.8) # Adjusts for % pups present at survey
+# NuPP <- 0.5*Nu[1] 
+# Modal depth (depth otters most likely to be at, on average: part of depth function)
 ModalD ~ dnorm(12,1/3^2) T(4,20)
 # Male bias in additional shark mortality hazards (positive multiplier)
 MbiasInv ~ dbeta(8,3)
 Mbias <- 1/MbiasInv
 # Male Area Effect (adjusts Female dispersal relative to reproductive area)
-MAeff ~ dbeta(3,8)
+FRD[1] ~ dbeta(1.5,1.5)
+FRD[2] ~ dbeta(1.5,1.5)
+FRDF[1] <- FRD[1] 
+FRDF[2] <- min(1,FRD[1]*(1/FRD[2])) 
+FRDF[3] <- 1 
 # "Urchin Boom Effect", reduction in hazards due to nutrional limitation
 # (allows for effect of urchin boom (seastar wasting) 2014-17 in central coast)
-UBE ~ dt(0, 1/5^2 ,1) T(-10,0)# Effect of Urchin boom (-ve for reduced hazard rate)
+UBE ~ dt(0, 1/5^2 ,1) T(-20,0)# Effect of Urchin boom (-ve for reduced hazard rate)
 }

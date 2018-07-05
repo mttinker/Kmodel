@@ -31,6 +31,7 @@ baserast = raster(xmn=xmn, xmx=xmx, ymn=ymn, ymx=ymx,
 # Ratserize dfgrid Substrate layer (-1 = estuary, 0 = soft, 1 = hard)
 grdSub = rasterize(dfgrd[, c('X', 'Y')], baserast, dfgrd[, 'SubstrN'], fun=mean)
 extMont = extent(c(-180000, -165000, -165000, -148000))
+extMont2 = extent(c(-175000, -167000, -157000, -149000))
 extElk = extent(c(-165000, -150000, -135000, -125000))
 pal <- colorRampPalette(c("orange","purple"))
 plot(grdSub,ext = extMont,col = pal(10))
@@ -61,6 +62,25 @@ ii = which(dfgrd$SubstrNsm > .1 & dfgrd$SubstrNsm <.75); dfgrd$SubstrCat[ii] = 2
 grdSubcl = rasterize(dfgrd[, c('X', 'Y')], baserast, dfgrd[, 'SubstrCat'], fun=mean)
 plot(grdSubcl,ext = extMont,col = pal(3))
 plot(grdSubcl,ext = extElk,col = pal(3))
+#
+# Ratserize dfgrid Kelp layer (0 = open, 1 = kelp)
+grdSub2 = rasterize(dfgrd[, c('X', 'Y')], baserast, dfgrd[, 'Kelp'], fun=mean)
+pal <- colorRampPalette(c("orange","purple"))
+plot(grdSub2,ext = extMont,col = pal(10))
+
+
+# re-sample kelp using 400m moving window average (circle), to make smoothed kelp layer
+fw <- focalWeight(grdSub2, 200, type='circle') 
+grdSubSm2<-focal(grdSub2, w=fw,fun=mean , na.rm=TRUE) 
+plot(grdSubSm2,ext = extMont,col = pal(20))
+sp <- SpatialPoints(data.frame(X = dfgrd$X,Y=dfgrd$Y))
+Subsm2 = raster::extract(grdSubSm2,sp,method='bilinear')
+dfgrd$Kelpsm = pmax(0,pmin(1,Subsm2*15))
+ii = which(is.na(Subsm2))
+dfgrd$Kelpsm[ii] = dfgrd$Kelp[ii]
+dfgrd$KelpsmC = ceiling(dfgrd$Kelpsm - 0.1)
+grdSubK = rasterize(dfgrd[, c('X', 'Y')], baserast, dfgrd[, 'Kelpsm'], fun=mean)
+plot(grdSubK,ext = extMont2,col = pal(20))
 write.csv(dfgrd,file="./Data/Ottrange_Grid_CC_class.csv",row.names = FALSE)
 
 
