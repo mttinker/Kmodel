@@ -25,7 +25,7 @@ plot(PropK,ms,col="red",type = "l",xlab = "Proportion of K",ylab = "Male Surviva
 # Test function ------------------------------------------------------------------------------------
 source("somatrixHz.r")
 AdHz = 0 # (assume same hazards for female and male, though they can be different)
-Sig = .05
+Sig = .15
 PropK = .5
 lam = numeric()
 R = numeric()

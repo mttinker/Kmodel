@@ -45,7 +45,7 @@ somatrixHz <- function(PrpK,sigma,AdHzF,AdHzM){
   rho4 = 0.167 # Param for reproduction
   # Compute stochastic effects for this year 
   eps = rnorm(1,0,sigma) # env. stochasticity, variance in log hazard ratios
-  epsR = exp(eps-(sigma^2)/2) # Bias-adjusted log-normal error for R
+  epsR = exp(-1*eps) # Bias-adjusted log-normal error for R
   # Calculate vital rates
   R = min(rho1,((rho2^(rho3*PrpK))/10 + rho4)*epsR)
   fs = exp(-zeta1*exp(zeta2+zeta4*PrpK+AdHzF+eps))
