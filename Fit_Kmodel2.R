@@ -20,43 +20,32 @@ require(coda)
 # Load data ------------------------------------------------------------------
 # source("Process_data.R") # NOTE: need to run Process_data script first
 rm(list = c())
-load("Data_for_Kmod.rdata")
-NKguess=dim(Kguess)[1]
+load("Data_for_Kmod2.rdata")
 tauKg=1/seKg^2
-dfPopMeanVars = data.frame(Area = Areas,Estuary=SH4mn,Soft=SH1mn,Mixed=SH2mn,Hard=SH3mn,
-                Depth=colMeans(DepH), Slope=DshHmn, Kelp=KlpHmn)
+Depthvect = seq(1,60); NDeps =  length(Depthvect)
+NyrsPre = 5
 # Set params -----------------------------------------------------------------
 # Set up Jags inputs -----------------------------------------------------
 #
-fitmodel = c("FitKmod.jags")
+fitmodel = c("FitKmod2.jags")
 #  
 jags.data <- list(Ncounts=Ncounts,NCarcsF=NCarcsF,NCarcsM=NCarcsM,
                   Psrv=Psrv,Ysrv=Ysrv,DemComp=DemComp,Npop=Npop,Nyrs=Nyrs,
-                  AreaHD=AreaHD,AreaLD=AreaLD,NgrdH=NgrdH,NgrdL=NgrdL,
-                  GridcountH=GridcountH,GridcountL=GridcountL,UB=UB,
-                  DepH=DepH,DepL=DepL,KlpH=KlpH,KlpL=KlpL,
-                  DshH=DshH,DshL=DshL,propfem=propfem,AreaGL=AreaGL,
-                  SH1=SH1,SH2=SH2,SH3=SH3,SH4=SH4,HG=HG,LG=LG,
-                  SL1=SL1,SL2=SL2,SL3=SL3,seKH=seKH,seKL=seKL,
-                  SH1mn=SH1mn,SH2mn=SH2mn,SH3mn=SH3mn,SH4mn=SH4mn,
-                  SL1mn=SL1mn,SL2mn=SL2mn,SL3mn=SL3mn,AreaGH=AreaGH,
-                  KlpHmn=KlpHmn,DshHmn=DshHmn,KlpLmn=KlpLmn,DshLmn=DshLmn,
-                  CarcShrkF=CarcShrkF,CarcShrkM=CarcShrkM,
+                  UB=UB,Nbin=Nbin,AreaB=AreaB,Dep=Dep,NyrsPre=NyrsPre,
+                  Phrd=Phrd,Pklp=Pklp,Dsh=Dsh,Sumcount=Sumcount,
+                  CarcShrkF=CarcShrkF,CarcShrkM=CarcShrkM,Areas=Areas,
                   PshkM=PshkM,YshkM=YshkM,PshkF=PshkF,YshkF=YshkF,
-                  TotCarcF=TotCarcF,TotCarcM=TotCarcM,
-                  LogInd=LogInd,LogPup=LogPup,logN0=logN0,
-                  Ndeps=Ndeps,RelDensDep=RelDensDep,PrpnDH=PrpnDH,
-                  PrpnDL=PrpnDL,Kguess=Kguess,NKguess=NKguess,tauKg=tauKg,
-                  rho=rho,zeta=zeta,disprobF=disprobF,disprobM=disprobM) #CountP=CountP,CountI=CountI,  
+                  TotCarcF=TotCarcF,TotCarcM=TotCarcM,Depthvect=Depthvect,
+                  CountI=CountI,CountP=CountP,logN0=logN0,NDeps=NDeps,
+                  Kguess=Kguess,NKguess=NKguess,tauKg=tauKg,
+                  rho=rho,zeta=zeta,disprobF=disprobF,disprobM=disprobM) 
 #
-inits <- function() list(sigT=runif(1, .45, .55), sigP=runif(1, .3, .6),
-                         sigK=runif(1, .8, 1.2), Nu = runif(1,.5,1), 
-                         B0 = runif(4,.1,1.5),
-                         B1=runif(1, 1, 3), B2=runif(1, 10, 50), 
-                         B3=runif(1, 1, 3), B4=runif(1, -.5, -.05))
+inits <- function() list(sigT=runif(1, .45, .55), sigE=runif(1, .1, .3),
+                         sigK=runif(1, .8, 1.2), Nu = runif(1,.5,1))
 # sigK=runif(1, .1, .5),
-params <- c("sigT","sigP","sigE","sigK","Nu","B0","B1","B2","B3","B4","pupscalefact",
-            "FRDF","UBE","Mbias","K","KHD","epsK","AdHz","N") 
+params <- c("sigT","sigE","sigK","Nu","B1","B2","B3","B4","B5",
+            "pupscalefact","FRDF","UBE","Mbias","propfem",
+            "K","Kdns","AdHz","N") 
 #
 nsamples <- 250
 nthin <- 1
@@ -94,17 +83,13 @@ post = post[,xx]
 #
 plot(out, vars = "sigT", plot.type = c("trace", "histogram"),
      layout = c(1,2))
-# plot(out, vars = "sigO", plot.type = c("trace", "histogram"),
-#      layout = c(1,2))
-plot(out, vars = "sigP", plot.type = c("trace", "histogram"),
+plot(out, vars = "Nu", plot.type = c("trace", "histogram"),
      layout = c(1,2))
 plot(out, vars = "sigE", plot.type = c("trace", "histogram"),
      layout = c(1,2))
 plot(out, vars = "sigK", plot.type = c("trace", "histogram"),
      layout = c(1,2))
 plot(out, vars = "FRDF", plot.type = c("trace", "histogram"),
-     layout = c(1,2))
-plot(out, vars = "B0", plot.type = c("trace", "histogram"),
      layout = c(1,2))
 plot(out, vars = "B1", plot.type = c("trace", "histogram"),
      layout = c(1,2))
@@ -114,16 +99,17 @@ plot(out, vars = "B3", plot.type = c("trace", "histogram"),
      layout = c(1,2))
 plot(out, vars = "B4", plot.type = c("trace", "histogram"),
      layout = c(1,2))
+plot(out, vars = "B5", plot.type = c("trace", "histogram"),
+     layout = c(1,2))
 plot(out, vars = "Mbias", plot.type = c("trace", "histogram"),
      layout = c(1,2))
 plot(out, vars = "UBE", plot.type = c("trace", "histogram"),
      layout = c(1,2))
-plot(out, vars = "Nu", plot.type = c("trace", "histogram"),
-     layout = c(1,2))
 plot(out, vars = "pupscalefact", plot.type = c("trace", "histogram"),
      layout = c(1,2))
-plot(out, vars = "KHD", plot.type = c("trace", "histogram"),
+plot(out, vars = "K", plot.type = c("trace", "histogram"),
      layout = c(1,2))
+
 #
 sumstats = summary(out)
 #
@@ -132,11 +118,25 @@ plot(c(1983:2017),sumstats[which(startsWith(vn,"N[") & endsWith(vn,",7]")),4],
     main = "Abundance trends, Monterey Peninsula")
 iii = which(dfC$Pop==7)
 points(dfC$Year[iii],dfC$Otts[iii])
+
 plot(c(1983:2017),sumstats[which(startsWith(vn,"N[") & endsWith(vn,",5]")),4],
      type="l", xlab = "year",ylab = "Otter abundance", 
      main = "Abundance trends, Elkhorn Slough")
 iii = which(dfC$Pop==5)
 points(dfC$Year[iii],dfC$Otts[iii])
+
+plot(c(1983:2017),sumstats[which(startsWith(vn,"N[") & endsWith(vn,",12]")),4],
+     type="l", xlab = "year",ylab = "Otter abundance", 
+     main = "Abundance trends, Cambria")
+iii = which(dfC$Pop==11)
+points(dfC$Year[iii],dfC$Otts[iii])
+
+plot(c(1983:2017),sumstats[which(startsWith(vn,"N[") & endsWith(vn,",13]")),4],
+     type="l", xlab = "year",ylab = "Otter abundance", 
+     main = "Abundance trends, Estero Bay")
+iii = which(dfC$Pop==11)
+points(dfC$Year[iii],dfC$Otts[iii])
+
 plot(c(1983:2017),sumstats[which(startsWith(vn,"N[") & endsWith(vn,",11]")),4],
      type="l", xlab = "year",ylab = "Otter abundance", 
      main = "Abundance trends, Pt Arguello")
@@ -175,5 +175,5 @@ title(main = "Color Scale", font.main = 1)
 title(xlab = "log(Shark Bite Hazards)", line = .5, cex.lab=.8)
 layout(1)
 
-save.image(file="./Data/FitK_Results_temp2.rdata")
+save.image(file="./Data/FitK_Results_mod2.rdata")
 

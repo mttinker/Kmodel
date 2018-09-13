@@ -1,0 +1,151 @@
+# Model to fit population growth (with density dependence/stochasticity) to 
+# time series of survey counts: includes habitat-specific K
+#
+model{
+# OBSERVED VARIABLES
+# Observed node: survey counts 
+# NOTE: negative binomial, with dispersion set so that V = 1.2*M
+# (ie if M = N[Ysrv[i],Psrv[i]], then r = M^2/(V-M), p = r/(r+M), Count ~ dnegbin(p,r)
+for (i in 1:Ncounts){		
+	MI[i] <- N[Ysrv[i],Psrv[i]]
+	VI[i] <- N[Ysrv[i],Psrv[i]]*Vinflate
+	rI[i] <- MI[i]^2/(VI[i]-MI[i]) 
+	pI[i] <- rI[i]/(rI[i]+MI[i]) 
+	CountI[i] ~ dnegbin(pI[i],rI[i])	
+	# MP[i] <- max(.001,n[1,Ysrv[i],Psrv[i]])*pupscalefact
+	# VP[i] <- MP[i]*Vinflate
+	# rP[i] <- MP[i]^2/(VP[i]-MP[i]) 
+	# pP[i] <- rP[i]/(rP[i]+MP[i]) 
+	# CountP[i] ~ dnegbin(pP[i],rP[i])
+}
+# Observed Node: female carcasses (COD = 1 for shark, 0 for other)
+for (i in 1:NCarcsF){
+	ExpPshkF[i] <- AdHz[PshkF[i],YshkF[i]]*(1/Sharkeff)
+	CarcShrkF[i] ~ dbin(ExpPshkF[i],TotCarcF[i])
+}
+# Observed Node: Cumulative counts in coastal segment depth bins 
+for (i in 1:Npop) {
+  for (j in 1:Nbin[i]){
+	ExpctCountB[j,i] <- sum(PrpK[i,1:Nyrs])*KB[j,i]
+	# Observed node: summed count for this depth bin/sub-pop
+	ppar[j,i] <- Nu/(Nu+ExpctCountB[j,i]) 
+	Sumcount[j,i] ~ dnegbin(ppar[j,i],Nu)	
+  }	
+}
+# LATENT VARIABLES
+# Loop through Pops to initiate populations
+for (i in 1:Npop){
+	# Initialize pop vectors for SubPop i in pre-year 1 (vague prior centered around initial 6 yrs counts)
+	logN1[i] ~ dnorm(logN0[i],5)
+	# Dns0[i] ~ dunif(0,5) # Uninformative uniform prior
+	N[1,i] <- max(1,round(exp(logN1[i])))	
+	PrpK[i,1] <- N[1,i]/K[i]
+}
+Ntot[1] <- sum(N[1,1:Npop])
+# Loop through Pops and Years to compute population dynamics from Year 1 = 1983
+for (y in 1:(Nyrs-1)){
+	for (i in 1:Npop){
+		# Calculate effects of Environmental stochasticity
+		eps[i,y] ~ dnorm(0,tauE) T(-.5,.5)  # env. stochasticity, variance in log hazard ratios
+		# Calculate rmax: use Michaelis–Menten saturation function to est local rmax based on pup ratio
+		rmax[i,y] <- (BaseRmax*Pupratio[i,y])/(ReproP+Pupratio[i,y])		
+		# Est loglam, with effects of urchin boom, shark mort, and stochasticity
+		loglam[i,y] <- rmax[i,y]*(1-PrpK[i,y]) + UB[i,y]*UBE - AdHz[i,y] + eps[i,y]
+		# Population dynamics, stochastic density dependent growth
+		log(N[y+1,i]) <- log(N[y,i]) + loglam[i,y]
+		# Calulate next years proportion K based on weighted avg of last 3 years (or 2 yrs if y = 1)
+		Tavg[i,y] <- ifelse(y==1,0,1)
+		PrpK[i,y+1] <- (0.25*(2*N[y+1,i]+N[y,i]+N[y-Tavg[i,y],i]))/K[i]
+	}
+	Ntot[y+1] <-  sum(N[y+1,1:Npop])
+}
+# Loop through Pops to estimate K (sum over grid cells, grouped into depth bin reps)
+for (i in 1:Npop) {
+  # Allow for variance in realized K density across coastal sections 
+  # (assume log-normal distribution in K density)
+  epsK[i] ~ dnorm(0,tauK) # T(-1.96,1.96)
+  LogKdns[1,i] <- IntcptE+epsK[i] # log K density in estuarine habitat (if any)  
+  # For outer coast, compout log K density by depth bin categories
+  LogKdns[2:Nbin[i],i] <- Intcpt+DPin[Dep[2:Nbin[i],i]]+DPoff[Dep[2:Nbin[i],i]]+B3*Phrd[2:Nbin[i],i]+B4*Pklp[2:Nbin[i],i]+B5*Dsh[2:Nbin[i],i]+epsK[i]
+  for (j in 1:Nbin[i]){
+	# Calculate K density for depth bin and then scale to area
+	KdnsR[j,i] <- exp(LogKdns[j,i])
+	KB[j,i] <- KdnsR[j,i]*AreaB[j,i]
+  }	
+  K[i] <- sum(KB[1:Nbin[i],i]) 
+  Kdns[i] <- K[i]/Areas[i]
+  # Observed node, "K guess" with large variance: log of 2005-2010 counts ***NOTE: keep this?
+  # for (j in 1:NKguess){
+	# Kguess[j,i] ~ dnorm(log(Kdns[i]),tauKg)
+  # }  
+}
+# Compute variation in Shark bite mortality by sub-pop and year
+#  (Conditional Autoregressive variable in 2 dimensions, coast section and time)
+#  "AdHz" = additional hazards, logit fxn scaled to maximum shark effect on log-lambda
+for (y in 1:(Nyrs)){
+	for (i in 1:Npop){
+		AdHz[i,y] <- ifelse(i==5,0,Sharkeff*ilogit(AdHzP[i,y]))
+	}
+}
+AdHzP[1,1] ~ dt(-3, 1/2^2 ,1) 
+AdHzP[2,1] ~ dt(-3, 1/2^2 ,1) 
+AdHzP[1,2] ~ dt(-3, 1/2^2 ,1) 
+for (i in 3:Npop) {
+    diff.F[i] <- 2*AdHzP[i-1,1]-AdHzP[i-2,1]
+    AdHzP[i,1] ~ dnorm(diff.F[i],tauT)
+}
+for (i in 3:Nyrs) {
+    diff.H[i] <- 2*AdHzP[1,i-1]-AdHzP[1,i-2]
+    AdHzP[1,i] ~ dnorm(diff.H[i],tauT) 
+}
+for (i in 2:Npop) {
+    for (j in 2:Nyrs) {
+       diff.T[i,j] <- (AdHzP[i-1,j-1] + (AdHzP[i,j-1]-AdHzP[i-1,j-1]) 
+                       + (AdHzP[i-1,j]-AdHzP[i-1,j-1]))			
+       AdHzP[i,j] ~ dnorm(diff.T[i,j],tauT) 
+    }
+}
+# Depth effect, inshore and offshore of modal depth
+for (d in 1:NDeps){
+  DPin[d] <- -1*B1*0.01*max(0,ModalD-Depthvect[d])^2
+  DPoff[d] <- -1*B2*0.01*max(0,Depthvect[d]-ModalD)^2
+}
+# Fit priors (using vague cauchy priors for most params, as per Gelman 2008)
+# Priors for K effects (expressed as log ratios): 
+Intcpt ~ dt(0, 1/1^2 ,1) T(-5,5) # Mean K density, soft substrate (at modal depth)
+IntcptE ~ dt(0, 1/1^2 ,1) T(-5,5) # Mean K density, estuary 
+B1 ~ dt(0, 1/2.5^2 ,1) T(0,15) # Effect of Depth, inshore 
+B2 ~ dt(0, 1/2.5^2 ,1) T(0,15) # Effect of Depth, offshore 
+B3 ~ dt(0, 1/2.5^2 ,1) # Effect of substrate: proportion hard, linear
+B4 ~ dt(0, 1/2.5^2 ,1) # Effect of kelp cover
+B5 ~ dt(0, 1/2.5^2 ,1) # Effect of Shallow Slope (DistShore_v_Depth residual) 
+# Dispersion param for depth bin counts (negative binomial distributions)
+Nu ~ dt(0, .001 ,1) T(0.001,100) 
+# Variance parameters:
+# Note: uninformative half cauchy priors used for variance params (Gelman 2008) 
+#  Variance in K density across coastal sections (log ratio of mean expected K)
+sigK ~ dt(0, 1/1^2 ,1) T(0,) # 
+tauK <- pow(sigK,-2)
+# Variance in shark mortality (over time and space)
+sigT ~ dt(0, 1/0.25^2 ,1) T(0,1.5)# temporal variance in CAR variable logit(AdHz)
+tauT <- pow(sigT,-2)
+# Environmental stochasticity (unexplained variance in annual hazard rates)
+sigE ~ dt(0, 1/.5^2 ,1) T(0,) # 
+tauE <- pow(sigE,-2)
+# Observer error in otter counts: variance inflation factor for Poisson 
+Vinflate ~ dt(1, 1/1^2 ,1) T(1.001,15)# Observer error
+# Vinflate <- 1.2 # Either fixed or informed prior around 1.2
+#
+# Some nuiscense params:
+BaseRmax <- 0.22
+#ReproP <- .02
+#Sharkeff <- 0.05 
+#UBE <- 0.1
+# Modal depth (depth otters most likely to be at, on average: part of depth function)
+# Informed prior or fixed based on telemetry data (Tinker et al 2017)
+ModalD ~ dnorm(10,1/3^2) T(1,20)
+ReproP ~  dt(0.015, 1/0.01^2 ,1) T(0,0.05) # Effect on rmax of pup ratio (ie female vs male areas)
+Sharkeff ~ dt(0, 1/.1^2 ,1) T(0,0.5) # Effect on log-lambda of female shark mort 
+UBE ~ dt(0, 1/.1^2 ,1) T(0,.5)# Effect on log-lambda of Urchin boom 
+# pupscalefact ~  dt(.35, 1/.1^2 ,1) T(0.1,.5) # % females with pups at survey(informed prior)
+}
