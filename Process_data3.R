@@ -9,16 +9,14 @@ library(gridExtra)
 library(stats)
 library(fitdistrplus)
 library(extraDistr)
+# Load Data ----------------------------------------------------
+dfC = read_xlsx("../Data/Sum_Year_HabsecLim.xlsx")
+dfD1 = read_xlsx("../Data/Sum_Pop_dep.xlsx")
+dfD2 = read_xlsx("../Data/Sum_Pop_estuary.xlsx")
+dfHabSecs = read_xlsx("../Data/HabSecsLim.xlsx")
+dfCarcs = read_xlsx("../Data/Shark_sum.xlsx")
+# Process Data -------------------------------------------------
 PlotTrends = 1
-dfC = read_xlsx("./Data/Sum_Year_HabsecLim.xlsx")
-dfD1 = read_xlsx("./Data/Sum_Pop_dep.xlsx")
-dfD2 = read_xlsx("./Data/Sum_Pop_estuary.xlsx")
-dfHabSecs = read_xlsx("./Data/HabSecsLim.xlsx")
-# dfDU = read_xlsx("./Data/Depth_use_sum.xlsx")
-# dfHR = read_xlsx("./Data/Home Range Summaries.xlsx")
-# dfNgrids = read_xlsx("./Data/Count_grid_Strata.xlsx")
-dfCarcs = read_xlsx("./Data/Shark_sum.xlsx")
-
 zeta=numeric(); rho = numeric()
 zeta[1] = .01 # Intercept (nuiscence parameter)
 zeta[2] = 1.3	# Shared hazards for all animals when density low, food abundant
@@ -258,5 +256,5 @@ save(dfHabSecs,dfC,disprobF,disprobM,distmat,
      CarcShrkF,PshkF,YshkF,CarcShrkM,PshkM,YshkM,
      TotCarcF,TotCarcM,Sumcount,Kguess,seKg,NKguess,
      rho,zeta,Npop,Nyrs,Years,AreaHD,
-     file = "Data_for_Kmod3.rdata") 
+     file = "../Data/Data_for_Kmod3.rdata") 
 
