@@ -188,17 +188,23 @@ for (pp in 1:Npop){
   kk = sumstats[which(vn==paste0("K[",pp,"]")),2]
   pk = nn/kk
   plot(Years,pk,
-       type="l", xlab = "year",ylab = "Prop K", 
+       type="l", xlab = "Year",ylab = "Prop K", 
        main = paste0("Proportion K, Pop ",pp),ylim = c(0,1.5))
   abline(h = 1,col="red")
   abline(v = 1998,col="green")
   abline(v = 2012,col="green")
   PKpop[pp] = mean(pk[16:30])
 }
-plot(c(1:19),PKpop)
 smthK = smooth(PKpop,twiceit = TRUE)
-lines(c(1:19),smthK)
-
+dfPpnK = data.frame(Coastal_Section = c(1:19),
+                    Proportion_K = PKpop,Smoothed = as.numeric(smthK))
+plt4 = ggplot(data=dfPpnK,aes(x=Coastal_Section,y = Proportion_K)) +
+        geom_point() + 
+        geom_line(aes(y=Smoothed)) + 
+        ggtitle("Mean Proportion of K (1998-2012) by Coastal Section") +
+        labs(x = "Coastal Sections, North to South",
+             y = "Proportion of K")
+print(plt4)
 
 
 

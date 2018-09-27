@@ -249,7 +249,7 @@ NKguess=dim(Kguess)[1]
 # dfGsmp = rbind(dfGH[iiH,],dfGL[iiL,]) 
 # Ngrd = dim(dfGsmp)[1]
 # hist(dfGsmp$SubstrCat)
-save(dfHabSecs,dfC,disprobF,disprobM,distmat,
+save(dfHabSecs,dfC,disprobF,disprobM,distmat,fitdep,
      DemComp,Psrv,Ysrv,NCarcsF,NCarcsM,Pupratio,
      CountI,CountP,LogInd,LogPup,logN0,Areas,
      Nbin,AreaB,Dep,Phrd,Pklp,Dsh,UB,Ncounts,

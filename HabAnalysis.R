@@ -2,7 +2,7 @@ library(rgdal)
 library(raster)
 library(readxl)
 # Determine modal depth
-dfDep = read_xlsx("./Data/Counts_by_Dep.xlsx")
+dfDep = read_xlsx("../Data/Counts_by_Dep.xlsx")
 dfDep$Dep = -1*dfDep$Depth
 dfDep = dfDep[dfDep$Dep<=60,]
 dfDep$Dep2 = dfDep$Dep^2
@@ -67,7 +67,6 @@ plot(grdSubcl,ext = extElk,col = pal(3))
 grdSub2 = rasterize(dfgrd[, c('X', 'Y')], baserast, dfgrd[, 'Kelp'], fun=mean)
 pal <- colorRampPalette(c("orange","purple"))
 plot(grdSub2,ext = extMont,col = pal(10))
-
 
 # re-sample kelp using 400m moving window average (circle), to make smoothed kelp layer
 fw <- focalWeight(grdSub2, 200, type='circle') 

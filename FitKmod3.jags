@@ -101,11 +101,12 @@ for (i in 2:Npop) {
        AdHzP[i,j] ~ dnorm(diff.T[i,j],tauT) 
     }
 }
-# Depth effect on K, inshore and offshore of modal depth
+# Compute Depth effect on K, inshore and offshore of modal depth
 for (d in 1:NDeps){
   DPin[d] <- -1*B1*0.01*max(0,ModalD-Depthvect[d])^2
   DPoff[d] <- -1*B2*0.01*max(0,Depthvect[d]-ModalD)^2
 }
+# FIT PRIORS 
 # Fit priors (using vague cauchy priors for most params, as per Gelman 2008)
 # Priors for K habitat effects (expressed as log ratios relative to intercept): 
 Intcpt ~ dt(0, 1/1^2 ,1) T(-5,5) # Mean K density, soft substrate (at modal depth)
